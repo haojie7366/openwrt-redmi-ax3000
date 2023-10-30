@@ -1,0 +1,96 @@
+From 0774b51831e5e5ae946e67904f9969fd8b794ae8 Mon Sep 17 00:00:00 2001
+From: Jonathan McDowell <noodles@earth.li>
+Date: Sat, 20 Jun 2020 11:31:05 +0100
+Subject: [PATCH 1/2] net: dsa: qca8k: Improve SGMII interface handling
+
+This patch improves the handling of the SGMII interface on the QCA8K
+devices. Previously the driver did no configuration of the port, even if
+it was selected. We now configure it up in the appropriate
+PHY/MAC/Base-X mode depending on what phylink tells us we are connected
+to and ensure it is enabled.
+
+Tested with a device where the CPU connection is RGMII (i.e. the common
+current use case) + one where the CPU connection is SGMII. I don't have
+any devices where the SGMII interface is brought out to something other
+than the CPU.
+
+Signed-off-by: Jonathan McDowell <noodles@earth.li>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+
+(cherry picked from commit f6dadd559886f8cc12d68e98ad77d1da08bfe978)
+
+Signed-off-by: hzy <hzyitc@outlook.com>
+---
+ drivers/net/dsa/qca8k.c | 25 +++++++++++++++++++++++++
+ drivers/net/dsa/qca8k.h | 12 ++++++++++++
+ 2 files changed, 37 insertions(+)
+
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index a6d7b86c..1d6cef6c 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -458,6 +458,31 @@ qca8k_set_pad_ctrl(struct qca8k_priv *priv, int port, int mode)
+ 		break;
+ 	case PHY_INTERFACE_MODE_SGMII:
+ 		qca8k_write(priv, reg, QCA8K_PORT_PAD_SGMII_EN);
++
++		/* Disable SerDes auto-negotiation */
++		val = qca8k_read(priv, QCA8K_REG_PWS);
++		val |= QCA8K_PWS_SERDES_AEN_DIS;
++		qca8k_write(priv, QCA8K_REG_PWS, val);
++
++		/* Configure the SGMII parameters */
++		val = qca8k_read(priv, QCA8K_REG_SGMII_CTRL);
++
++		val |= QCA8K_SGMII_EN_PLL | QCA8K_SGMII_EN_RX |
++			QCA8K_SGMII_EN_TX | QCA8K_SGMII_EN_SD;
++
++		if (port == QCA8K_CPU_PORT) {
++			/* CPU port, we're talking to the CPU MAC, be a PHY */
++			val &= ~QCA8K_SGMII_MODE_CTRL_MASK;
++			val |= QCA8K_SGMII_MODE_CTRL_PHY;
++		} else if (mode == PHY_INTERFACE_MODE_SGMII) {
++			val &= ~QCA8K_SGMII_MODE_CTRL_MASK;
++			val |= QCA8K_SGMII_MODE_CTRL_MAC;
++		} else if (mode == PHY_INTERFACE_MODE_1000BASEX) {
++			val &= ~QCA8K_SGMII_MODE_CTRL_MASK;
++			val |= QCA8K_SGMII_MODE_CTRL_BASEX;
++		}
++
++		qca8k_write(priv, QCA8K_REG_SGMII_CTRL, val);
+ 		break;
+ 	default:
+ 		pr_err("xMII mode %d not supported\n", mode);
+diff --git a/drivers/net/dsa/qca8k.h b/drivers/net/dsa/qca8k.h
+index 42d6ea24..c0fbadda 100644
+--- a/drivers/net/dsa/qca8k.h
++++ b/drivers/net/dsa/qca8k.h
+@@ -36,6 +36,8 @@
+ #define   QCA8K_MAX_DELAY				3
+ #define   QCA8K_PORT_PAD_RGMII_RX_DELAY_EN		BIT(24)
+ #define   QCA8K_PORT_PAD_SGMII_EN			BIT(7)
++#define QCA8K_REG_PWS					0x010
++#define   QCA8K_PWS_SERDES_AEN_DIS			BIT(7)
+ #define QCA8K_REG_MODULE_EN				0x030
+ #define   QCA8K_MODULE_EN_MIB				BIT(0)
+ #define QCA8K_REG_MIB					0x034
+@@ -77,6 +79,16 @@
+ #define   QCA8K_PORT_HDR_CTRL_ALL			2
+ #define   QCA8K_PORT_HDR_CTRL_MGMT			1
+ #define   QCA8K_PORT_HDR_CTRL_NONE			0
++#define QCA8K_REG_SGMII_CTRL				0xe0
++#define   QCA8K_SGMII_EN_PLL				BIT(1)
++#define   QCA8K_SGMII_EN_RX				BIT(2)
++#define   QCA8K_SGMII_EN_TX				BIT(3)
++#define   QCA8K_SGMII_EN_SD				BIT(4)
++#define   QCA8K_SGMII_MODE_CTRL_MASK			GENMASK(23, 22)
++#define   QCA8K_SGMII_MODE_CTRL(x)			((x) << 22)
++#define   QCA8K_SGMII_MODE_CTRL_BASEX			QCA8K_SGMII_MODE_CTRL(0)
++#define   QCA8K_SGMII_MODE_CTRL_PHY			QCA8K_SGMII_MODE_CTRL(1)
++#define   QCA8K_SGMII_MODE_CTRL_MAC			QCA8K_SGMII_MODE_CTRL(2)
+ 
+ /* EEE control registers */
+ #define QCA8K_REG_EEE_CTRL				0x100
+-- 
+2.40.1
+

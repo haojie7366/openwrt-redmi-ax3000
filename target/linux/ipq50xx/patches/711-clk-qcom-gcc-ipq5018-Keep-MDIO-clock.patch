@@ -1,0 +1,34 @@
+From 6d161db2659e65b7d92dd18a803a10378f3e27c8 Mon Sep 17 00:00:00 2001
+From: hzy <hzyitc@outlook.com>
+Date: Tue, 31 Oct 2023 02:00:30 +0800
+Subject: [PATCH] clk: qcom: gcc-ipq5018: Keep MDIO clock
+
+---
+ drivers/clk/qcom/gcc-ipq5018.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/clk/qcom/gcc-ipq5018.c b/drivers/clk/qcom/gcc-ipq5018.c
+index 2f6672d0..6d87b290 100644
+--- a/drivers/clk/qcom/gcc-ipq5018.c
++++ b/drivers/clk/qcom/gcc-ipq5018.c
+@@ -2048,7 +2048,7 @@ static struct clk_branch gcc_mdio0_ahb_clk = {
+ 				"pcnoc_clk_src"
+ 			},
+ 			.num_parents = 1,
+-			.flags = CLK_SET_RATE_PARENT,
++			.flags = CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED,
+ 			.ops = &clk_branch2_ops,
+ 		},
+ 	},
+@@ -2065,7 +2065,7 @@ static struct clk_branch gcc_mdio1_ahb_clk = {
+ 				"pcnoc_clk_src"
+ 			},
+ 			.num_parents = 1,
+-			.flags = CLK_SET_RATE_PARENT,
++			.flags = CLK_SET_RATE_PARENT | CLK_IGNORE_UNUSED,
+ 			.ops = &clk_branch2_ops,
+ 		},
+ 	},
+-- 
+2.40.1
+
